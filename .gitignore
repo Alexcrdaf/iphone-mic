@@ -1,5 +1,6 @@
 certs/
 __pycache__/
 *.pyc
+*.lnk
 .venv/
 .pytest_cache/

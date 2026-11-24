@@ -205,10 +205,7 @@ class MicBridgeServer:
                         self.router.set_input_samplerate(sr)
                         await ws.send_json({"type": "server_status", "audio": self.router.stats()})
                     elif msg_type == "config":
-                        if "muted" in data:
-                            self.router.muted = bool(data["muted"])
-                        if "gain" in data:
-                            self.router.gain = max(0.0, min(4.0, float(data["gain"])))
+                        self._apply_control_payload(data)
                         if "mode" in data:
                             self.client_info["mode"] = str(data["mode"])
                         await ws.send_json({"type": "server_status", "audio": self.router.stats()})
@@ -238,12 +235,21 @@ class MicBridgeServer:
         self.router.set_device(idx)
         return web.json_response(self.status_payload())
 
-    async def handle_api_control(self, request: web.Request) -> web.Response:
-        data = await request.json()
+    def _apply_control_payload(self, data: dict) -> None:
         if "muted" in data:
             self.router.muted = bool(data["muted"])
-        if "gain" in data:
-            self.router.gain = max(0.0, min(4.0, float(data["gain"])))
+        self.router.dsp.set_config(
+            gain=float(data["gain"]) if "gain" in data else None,
+            noise_mode=str(data["noiseMode"]) if "noiseMode" in data else None,
+            hpf_enabled=bool(data["hpfEnabled"]) if "hpfEnabled" in data else None,
+            agc_enabled=bool(data["agcEnabled"]) if "agcEnabled" in data else None,
+        )
+        if data.get("calibrateNoise"):
+            self.router.dsp.start_noise_calibration(1.5)
+
+    async def handle_api_control(self, request: web.Request) -> web.Response:
+        data = await request.json()
+        self._apply_control_payload(data)
         if self.active_ws is not None and not self.active_ws.closed:
             await self.active_ws.send_json({"type": "server_status", "audio": self.router.stats()})
         return web.json_response(self.status_payload())

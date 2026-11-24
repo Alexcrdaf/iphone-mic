@@ -12,6 +12,7 @@ from cryptography import x509
 from server.app import MicBridgeServer
 from server.audio_out import AudioRingBuffer, resample_mono_float32
 from server.certs import ensure_certificates
+from server.dsp import VoiceDspProcessor
 
 
 class CertsAndAudioUnitTests(unittest.TestCase):
@@ -60,6 +61,30 @@ class CertsAndAudioUnitTests(unittest.TestCase):
         dst = resample_mono_float32(src, 44100, 48000)
         self.assertEqual(len(dst), 480)
         self.assertEqual(dst.dtype, np.float32)
+
+    def test_dsp_denoise_agc_and_soft_limiter(self) -> None:
+        dsp = VoiceDspProcessor(sample_rate=48000)
+        dsp.set_config(gain=4.0, noise_mode="high", hpf_enabled=True, agc_enabled=True)
+        rng = np.random.default_rng(42)
+        dsp.start_noise_calibration(duration_sec=1.0)
+        noise_block = (rng.normal(0, 0.015, 512)).astype(np.float32)
+        for _ in range(12):
+            out_n = dsp.process(noise_block)
+            self.assertEqual(len(out_n), 512)
+            self.assertFalse(np.any(np.isnan(out_n)))
+
+        # Wait past calibration window logically by resetting calibrating_until
+        dsp.calibrating_until = 0.0
+        # Quiet noise after calibration should be suppressed heavily vs raw amplified noise
+        cleaned_noise = np.concatenate([dsp.process((rng.normal(0, 0.015, 512)).astype(np.float32)) for _ in range(8)])
+        self.assertLess(float(np.sqrt(np.mean(cleaned_noise ** 2))), 0.05)
+
+        # Loud speech sine + noise must stay bounded under soft limiter (< 0.98)
+        t = np.arange(512, dtype=np.float32) / 48000.0
+        loud_voice = (0.35 * np.sin(2 * np.pi * 440.0 * t)).astype(np.float32)
+        out_v = dsp.process(loud_voice)
+        self.assertLessEqual(float(np.max(np.abs(out_v))), 0.98)
+        self.assertGreater(float(np.sqrt(np.mean(out_v ** 2))), 0.15)
 
 
 class ServerIntegrationTests(AioHTTPTestCase):
@@ -122,6 +147,15 @@ class DashboardIntegrationTests(AioHTTPTestCase):
         self.assertEqual(qr_resp.status, 200)
         svg = await qr_resp.text()
         self.assertIn("<svg", svg)
+
+        ctrl_resp = await self.client.post(
+            "/api/control",
+            json={"gain": 5.5, "noiseMode": "high", "agcEnabled": True, "hpfEnabled": True, "calibrateNoise": True},
+        )
+        self.assertEqual(ctrl_resp.status, 200)
+        ctrl_data = await ctrl_resp.json()
+        self.assertEqual(ctrl_data["audio"]["dsp"]["gain"], 5.5)
+        self.assertEqual(ctrl_data["audio"]["dsp"]["noiseMode"], "high")
 
 
 if __name__ == "__main__":

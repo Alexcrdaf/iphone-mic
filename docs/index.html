@@ -54,10 +54,23 @@
 
       <div class="slider-block">
         <div class="meter-header">
-          <span class="field-label">Усиление (Gain)</span>
-          <span id="gainValue" class="mono">1.0x</span>
+          <span class="field-label">Громкость / Усиление (на ПК)</span>
+          <span id="gainValue" class="mono">2.2x</span>
         </div>
-        <input id="gainRange" type="range" min="0.5" max="3.0" step="0.1" value="1.0" />
+        <input id="gainRange" type="range" min="0.5" max="8.0" step="0.1" value="2.2" />
+      </div>
+
+      <div class="slider-block">
+        <div class="meter-header">
+          <span class="field-label">Шумоподавление ПК (DSP)</span>
+          <span id="pcNoiseLabel" class="mono">Среднее</span>
+        </div>
+        <select id="pcNoiseSelect">
+          <option value="off">Выкл</option>
+          <option value="low">Лёгкое</option>
+          <option value="medium" selected>Среднее (рекомендуется)</option>
+          <option value="high">Сильное</option>
+        </select>
       </div>
 
       <div class="toggle-row">

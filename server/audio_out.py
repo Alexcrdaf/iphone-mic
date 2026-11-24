@@ -9,6 +9,8 @@ from typing import Optional
 import numpy as np
 import sounddevice as sd
 
+from .dsp import VoiceDspProcessor
+
 
 @dataclass(frozen=True)
 class OutputDeviceInfo:
@@ -165,10 +167,18 @@ class VirtualMicRouter:
         self._in_rate = 48000
         self._max_buffer_ms = max_buffer_ms
         self._ring = AudioRingBuffer(int(48000 * max_buffer_ms / 1000))
+        self.dsp = VoiceDspProcessor(sample_rate=48000)
         self.rms_level = 0.0
         self.muted = False
-        self.gain = 1.0
         self.last_error: Optional[str] = None
+
+    @property
+    def gain(self) -> float:
+        return self.dsp.gain
+
+    @gain.setter
+    def gain(self, value: float) -> None:
+        self.dsp.set_config(gain=value)
 
     @property
     def device_info(self) -> Optional[OutputDeviceInfo]:
@@ -247,6 +257,7 @@ class VirtualMicRouter:
                 )
                 self._out_rate = rate
                 self._out_channels = channels
+                self.dsp.set_sample_rate(rate)
                 self._ring = AudioRingBuffer(max(2048, int(rate * self._max_buffer_ms / 1000)))
 
                 def _callback(outdata: np.ndarray, frames: int, time_info, status) -> None:
@@ -283,21 +294,19 @@ class VirtualMicRouter:
             return
         usable = len(raw_bytes) - (len(raw_bytes) % 2)
         pcm = np.frombuffer(raw_bytes[:usable], dtype="<i2").astype(np.float32) / 32768.0
-        if self.gain != 1.0:
-            pcm = np.clip(pcm * self.gain, -1.0, 1.0)
+        if self._in_rate != self._out_rate:
+            pcm = resample_mono_float32(pcm, self._in_rate, self._out_rate)
 
-        rms = float(np.sqrt(np.mean(pcm * pcm))) if len(pcm) else 0.0
-        # Smooth RMS slightly for UI meter.
-        self.rms_level = 0.65 * self.rms_level + 0.35 * rms
+        pcm = self.dsp.process(pcm)
+        self.rms_level = self.dsp.output_rms
 
         if self._stream is None:
             return
-        if self._in_rate != self._out_rate:
-            pcm = resample_mono_float32(pcm, self._in_rate, self._out_rate)
         self._ring.push(pcm)
 
     def stats(self) -> dict:
         dev = self._device_info
+        dsp_stats = self.dsp.stats()
         return {
             "active": self._stream is not None,
             "deviceIndex": dev.index if dev else None,
@@ -312,6 +321,7 @@ class VirtualMicRouter:
             "overruns": self._ring.overruns,
             "underruns": self._ring.underruns,
             "muted": self.muted,
-            "gain": self.gain,
+            "gain": dsp_stats["gain"],
+            "dsp": dsp_stats,
             "error": self.last_error,
         }

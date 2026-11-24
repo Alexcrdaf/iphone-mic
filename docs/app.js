@@ -14,6 +14,8 @@
   const muteBtn = $("muteBtn");
   const gainRange = $("gainRange");
   const gainValue = $("gainValue");
+  const pcNoiseSelect = $("pcNoiseSelect");
+  const pcNoiseLabel = $("pcNoiseLabel");
   const wakeLockToggle = $("wakeLockToggle");
 
   const meterFill = $("meterFill");
@@ -236,7 +238,7 @@
 
       const source = audioCtx.createMediaStreamSource(mediaStream);
       gainNode = audioCtx.createGain();
-      gainNode.gain.value = isMuted ? 0 : parseFloat(gainRange.value);
+      gainNode.gain.value = isMuted ? 0 : 1.0;
 
       analyserNode = audioCtx.createAnalyser();
       analyserNode.fftSize = 512;
@@ -280,6 +282,13 @@
           if (msg.audio) {
             telBuffer.textContent = `${msg.audio.bufferMs ?? 0} мс`;
             telDevice.textContent = msg.audio.deviceName || msg.audio.error || "Нет устройства";
+            if (msg.audio.dsp) {
+              gainRange.value = String(msg.audio.dsp.gain);
+              gainValue.textContent = `${Number(msg.audio.dsp.gain).toFixed(1)}x`;
+              pcNoiseSelect.value = msg.audio.dsp.noiseMode;
+              const labels = { off: "Выкл", low: "Лёгкое", medium: "Среднее", high: "Сильное" };
+              pcNoiseLabel.textContent = labels[msg.audio.dsp.noiseMode] || msg.audio.dsp.noiseMode;
+            }
           }
         } catch (_) {}
       };
@@ -421,7 +430,7 @@
     muteBtn.classList.toggle("active-mute", isMuted);
     muteBtn.textContent = isMuted ? "Unmute" : "Mute";
     if (gainNode) {
-      gainNode.gain.value = isMuted ? 0 : parseFloat(gainRange.value);
+      gainNode.gain.value = isMuted ? 0 : 1.0;
     }
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: "config", muted: isMuted }));
@@ -434,8 +443,17 @@
   gainRange.addEventListener("input", () => {
     const val = parseFloat(gainRange.value);
     gainValue.textContent = `${val.toFixed(1)}x`;
-    if (gainNode && !isMuted) {
-      gainNode.gain.value = val;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "config", gain: val }));
+    }
+  });
+
+  pcNoiseSelect.addEventListener("change", () => {
+    const mode = pcNoiseSelect.value;
+    const labels = { off: "Выкл", low: "Лёгкое", medium: "Среднее", high: "Сильное" };
+    pcNoiseLabel.textContent = labels[mode] || mode;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "config", noiseMode: mode }));
     }
   });
 

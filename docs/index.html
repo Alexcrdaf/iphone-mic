@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#090d1a" />
+  <title>iPhone 14 Pro → ПК Микрофон</title>
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <main class="container">
+    <header class="header">
+      <div>
+        <div class="badge" id="statusBadge">Отключено</div>
+        <h1>Микрофон для ПК</h1>
+        <p class="subtitle">iPhone 14 Pro → Windows (VB-Cable)</p>
+      </div>
+      <div class="ping-pill" id="pingPill">— мс</div>
+    </header>
+
+    <section class="card">
+      <label class="field-label" for="hostInput">Адрес ПК в локальной сети (IP:порт)</label>
+      <div class="host-row">
+        <input id="hostInput" type="text" inputmode="url" placeholder="192.168.1.101:8443" autocomplete="off" />
+        <button id="checkHostBtn" class="btn secondary" type="button">Проверить</button>
+      </div>
+      <div id="trustBanner" class="notice hidden">
+        <strong>Нужно разово доверить сертификат ПК:</strong>
+        <p>Нажмите кнопку ниже → в Safari выберите «Показать подробности» → «Посетить этот веб-сайт» (или установите профиль CA один раз навсегда).</p>
+        <div class="notice-actions">
+          <a id="trustLink" class="btn primary small" href="#" target="_blank" rel="noopener">1. Доверить в Safari</a>
+          <a id="caLink" class="btn secondary small" href="#" target="_blank" rel="noopener">Скачать CA-профиль</a>
+        </div>
+      </div>
+      <div id="hostStatusText" class="hint">Укажите IP ноутбука (например, 192.168.1.101:8443) или отсканируйте QR-код на ПК.</div>
+    </section>
+
+    <section class="card">
+      <div class="meter-header">
+        <span class="field-label">Уровень сигнала</span>
+        <span id="dbText" class="mono">-∞ дБ</span>
+      </div>
+      <div class="meter-track">
+        <div id="meterFill" class="meter-fill"></div>
+      </div>
+
+      <div class="main-actions">
+        <button id="toggleMicBtn" class="btn primary large" type="button">Включить микрофон</button>
+        <button id="muteBtn" class="btn secondary large" type="button" disabled>Mute</button>
+      </div>
+
+      <div class="slider-block">
+        <div class="meter-header">
+          <span class="field-label">Усиление (Gain)</span>
+          <span id="gainValue" class="mono">1.0x</span>
+        </div>
+        <input id="gainRange" type="range" min="0.5" max="3.0" step="0.1" value="1.0" />
+      </div>
+
+      <div class="toggle-row">
+        <label class="switch-label" for="wakeLockToggle">Не гасить экран во время работы</label>
+        <input id="wakeLockToggle" type="checkbox" checked />
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="field-label">Режим микрофона</div>
+      <div class="mode-grid" id="modeGrid">
+        <button type="button" class="mode-btn active" data-mode="voice">
+          <span class="mode-title">Изоляция голоса</span>
+          <span class="mode-desc">Шумоподавление + голосовой режим iOS</span>
+        </button>
+        <button type="button" class="mode-btn" data-mode="wide">
+          <span class="mode-title">Широкий спектр</span>
+          <span class="mode-desc">Чистый необработанный звук (48 кГц)</span>
+        </button>
+        <button type="button" class="mode-btn" data-mode="custom">
+          <span class="mode-title">Свой профиль</span>
+          <span class="mode-desc">Ручная настройка фильтров браузера</span>
+        </button>
+      </div>
+
+      <div id="customControls" class="custom-controls hidden">
+        <label class="toggle-row">
+          <span>Эхоподавление (Echo Cancellation)</span>
+          <input id="ecToggle" type="checkbox" checked />
+        </label>
+        <label class="toggle-row">
+          <span>Шумоподавление (Noise Suppression)</span>
+          <input id="nsToggle" type="checkbox" checked />
+        </label>
+        <label class="toggle-row">
+          <span>Автоусиление (Auto Gain)</span>
+          <input id="agcToggle" type="checkbox" checked />
+        </label>
+      </div>
+
+      <div id="micPickerWrap" class="mic-picker hidden">
+        <label class="field-label" for="micSelect">Входное устройство на iPhone</label>
+        <select id="micSelect"></select>
+      </div>
+
+      <div class="ios-tip">
+        <strong>Как выбрать системный режим на iPhone 14 Pro:</strong>
+        <p>
+          Apple разрешает переключать аппаратную <b>«Изоляцию голоса»</b> и <b>«Широкий спектр»</b> только через системный Пункт управления iOS.
+          Когда микрофон включён (горит оранжевая точка сверху), смахните шторку <b>справа сверху</b> → нажмите <b>«Режим микрофона»</b> → выберите <b>Изоляция голоса</b> или <b>Широкий спектр</b>.
+        </p>
+      </div>
+    </section>
+
+    <section class="card telemetry">
+      <div class="tel-item"><span>Частота</span><strong id="telRate">—</strong></div>
+      <div class="tel-item"><span>Буфер ПК</span><strong id="telBuffer">—</strong></div>
+      <div class="tel-item"><span>Вывод ПК</span><strong id="telDevice">—</strong></div>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>

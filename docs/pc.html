@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Панель ПК — iPhone 14 Pro Микрофон</title>
+  <style>
+    :root {
+      --bg: #090d1a; --card: #12192e; --border: #253154; --text: #eef2ff;
+      --muted: #98a6cf; --accent: #3b82f6; --green: #22c55e; --amber: #f59e0b; --red: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: "Segoe UI", system-ui, sans-serif;
+      background: radial-gradient(circle at top, #131d3a 0%, var(--bg) 65%);
+      color: var(--text); padding: 24px;
+    }
+    .wrap { max-width: 960px; margin: 0 auto; display: grid; grid-template-columns: 320px 1fr; gap: 18px; }
+    @media (max-width: 780px) { .wrap { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+      padding: 20px; display: flex; flex-direction: column; gap: 14px;
+    }
+    h1 { margin: 0; font-size: 22px; }
+    h2 { margin: 0; font-size: 16px; color: #dbeafe; }
+    p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+    .qr-box {
+      background: #fff; padding: 14px; border-radius: 14px; display: grid; place-items: center;
+    }
+    .qr-box img { width: 220px; height: 220px; display: block; }
+    .tabs { display: flex; gap: 8px; }
+    .tab-btn {
+      flex: 1; padding: 10px; border-radius: 10px; border: 1px solid var(--border);
+      background: #0b1020; color: var(--muted); font-weight: 600; cursor: pointer;
+    }
+    .tab-btn.active { background: rgba(59,130,246,0.2); border-color: var(--accent); color: #fff; }
+    .url-box {
+      background: #0b1020; border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px 12px; font-family: ui-monospace, monospace; font-size: 12px; word-break: break-all;
+    }
+    .badge {
+      display: inline-block; padding: 5px 11px; border-radius: 999px; font-size: 12px; font-weight: 600;
+      background: #1d2747; color: var(--muted); border: 1px solid var(--border); width: fit-content;
+    }
+    .badge.live { background: rgba(34,197,94,0.16); color: #86efac; border-color: rgba(34,197,94,0.4); }
+    .badge.warn { background: rgba(245,158,11,0.16); color: #fde68a; border-color: rgba(245,158,11,0.4); }
+    .meter-track { height: 14px; background: #0b1020; border-radius: 999px; overflow: hidden; border: 1px solid var(--border); }
+    .meter-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #22c55e, #eab308, #ef4444); transition: width 0.06s linear; }
+    select, button.btn {
+      width: 100%; padding: 11px 14px; border-radius: 10px; border: 1px solid var(--border);
+      background: #0b1020; color: var(--text); font-size: 14px;
+    }
+    button.btn { background: var(--accent); border: none; font-weight: 600; cursor: pointer; }
+    button.btn.secondary { background: #1e294a; border: 1px solid var(--border); }
+    .row { display: flex; gap: 10px; align-items: center; }
+    .grid-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .stat { background: #0b1020; border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+    .stat span { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .stat strong { font-size: 15px; }
+    .alert {
+      background: rgba(239,68,68,0.14); border: 1px solid rgba(239,68,68,0.4);
+      border-radius: 12px; padding: 12px; font-size: 13px; color: #fecaca; line-height: 1.45;
+    }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h2>Подключить iPhone 14 Pro</h2>
+      <div class="tabs">
+        <button class="tab-btn active" data-target="pages">GitHub Pages</button>
+        <button class="tab-btn" data-target="local">Локально (LAN)</button>
+      </div>
+      <div class="qr-box">
+        <img id="qrImg" src="/api/qr.svg?target=pages" alt="QR Code" />
+      </div>
+      <div id="urlText" class="url-box">Загрузка...</div>
+      <p>Наведите камеру iPhone 14 Pro на QR-код и откройте ссылку в Safari. Телефон и ПК должны быть в одной домашней сети (Wi-Fi роутера).</p>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content: space-between;">
+        <div>
+          <h1>Мост микрофона (Windows 11)</h1>
+          <p id="ipInfo">Определение IP...</p>
+        </div>
+        <span id="connBadge" class="badge">Ожидание iPhone</span>
+      </div>
+
+      <div id="vbAlert" class="alert hidden"></div>
+
+      <div>
+        <div class="row" style="justify-content: space-between; margin-bottom: 6px;">
+          <span style="font-size: 13px; color: var(--muted);">Уровень входящего звука</span>
+          <span id="rmsText" style="font-size: 13px;">0%</span>
+        </div>
+        <div class="meter-track"><div id="meterFill" class="meter-fill"></div></div>
+      </div>
+
+      <div class="grid-stats">
+        <div class="stat"><span>Режим</span><strong id="stMode">—</strong></div>
+        <div class="stat"><span>Частота</span><strong id="stRate">—</strong></div>
+        <div class="stat"><span>Буфер</span><strong id="stBuf">—</strong></div>
+      </div>
+
+      <div>
+        <label style="display:block; font-size:13px; color:var(--muted); margin-bottom:6px;">
+          Устройство вывода (выберите CABLE Input для виртуального микрофона):
+        </label>
+        <select id="deviceSelect"></select>
+      </div>
+
+      <div class="row">
+        <button id="mutePcBtn" class="btn secondary" type="button">Mute на ПК: Выкл</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentTarget = "pages";
+    let statusCache = null;
+
+    const qrImg = document.getElementById("qrImg");
+    const urlText = document.getElementById("urlText");
+    const ipInfo = document.getElementById("ipInfo");
+    const connBadge = document.getElementById("connBadge");
+    const vbAlert = document.getElementById("vbAlert");
+    const meterFill = document.getElementById("meterFill");
+    const rmsText = document.getElementById("rmsText");
+    const stMode = document.getElementById("stMode");
+    const stRate = document.getElementById("stRate");
+    const stBuf = document.getElementById("stBuf");
+    const deviceSelect = document.getElementById("deviceSelect");
+    const mutePcBtn = document.getElementById("mutePcBtn");
+
+    document.querySelectorAll(".tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        currentTarget = btn.dataset.target;
+        document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("active", b === btn));
+        qrImg.src = `/api/qr.svg?target=${currentTarget}&t=${Date.now()}`;
+        if (statusCache) {
+          urlText.textContent = currentTarget === "pages" ? statusCache.pagesUrl : statusCache.localUrl;
+        }
+      });
+    });
+
+    deviceSelect.addEventListener("change", async () => {
+      await fetch("/api/device", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deviceIndex: Number(deviceSelect.value) }),
+      });
+      await poll();
+    });
+
+    mutePcBtn.addEventListener("click", async () => {
+      if (!statusCache) return;
+      await fetch("/api/control", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ muted: !statusCache.audio.muted }),
+      });
+      await poll();
+    });
+
+    async function poll() {
+      try {
+        const res = await fetch("/api/status", { cache: "no-store" });
+        const data = await res.json();
+        statusCache = data;
+
+        urlText.textContent = currentTarget === "pages" ? data.pagesUrl : data.localUrl;
+        ipInfo.textContent = `Основной адрес ПК: ${data.host}`;
+
+        if (data.client.connected) {
+          connBadge.textContent = `Подключён (${data.client.remoteIp || "iPhone"})`;
+          connBadge.className = "badge live";
+        } else {
+          connBadge.textContent = "Ожидание iPhone";
+          connBadge.className = "badge";
+        }
+
+        if (data.audio.error) {
+          vbAlert.textContent = data.audio.error;
+          vbAlert.classList.remove("hidden");
+        } else {
+          vbAlert.classList.add("hidden");
+        }
+
+        const pct = Math.min(100, Math.round((data.audio.rms || 0) * 280));
+        meterFill.style.width = data.audio.muted ? "0%" : `${pct}%`;
+        rmsText.textContent = data.audio.muted ? "MUTE" : `${pct}%`;
+
+        stMode.textContent = data.client.mode || "—";
+        stRate.textContent = data.audio.outputSampleRate ? `${data.audio.outputSampleRate} Гц` : "—";
+        stBuf.textContent = `${data.audio.bufferMs ?? 0} мс`;
+
+        mutePcBtn.textContent = data.audio.muted ? "Mute на ПК: ВКЛ" : "Mute на ПК: Выкл";
+
+        if (deviceSelect.options.length !== data.devices.length) {
+          deviceSelect.innerHTML = "";
+          data.devices.forEach((d) => {
+            const opt = document.createElement("option");
+            opt.value = d.index;
+            opt.textContent = `${d.isVbCable ? "★ " : ""}${d.name} [${d.hostApi}]`;
+            deviceSelect.appendChild(opt);
+          });
+        }
+        if (data.audio.deviceIndex !== null && data.audio.deviceIndex !== undefined) {
+          deviceSelect.value = String(data.audio.deviceIndex);
+        }
+      } catch (_) {}
+    }
+
+    poll();
+    setInterval(poll, 350);
+  </script>
+</body>
+</html>
